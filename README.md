@@ -1,2 +1,2 @@
 # ShoppingListBot
-Bot for 2 users
+Shopping list bot for 2 users in Telegram
