@@ -16,23 +16,36 @@
 	<properties>
 		<java.version>17</java.version>
 		<telegram.version>5.6.0</telegram.version>
+		<slf4j.version>2.0.11</slf4j.version>
 	</properties>
 	<dependencies>
 
-		<!-- https://mvnrepository.com/artifact/org.telegram/telegrambots -->
 		<dependency>
 			<groupId>org.telegram</groupId>
 			<artifactId>telegrambots</artifactId>
 			<version>${telegram.version}</version>
+
 		</dependency>
 
-		<!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->
+		<!-- Excluding commons-logging to prevent conflicts with the logging framework used in this project (Logback).
+     The version of commons-logging bundled with httpclient may clash with the project's logging configuration. -->
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.5.13</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<version>1.18.30</version>
 		</dependency>
-
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -44,6 +57,7 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
 	</dependencies>
 
 	<build>
@@ -51,6 +65,9 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<!--<configuration>
+					<executable>true</executable>
+				</configuration>-->
 			</plugin>
 		</plugins>
 	</build>

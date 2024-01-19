@@ -1,12 +1,14 @@
 package com.shoppingbot.SpringBot.Service;
 
 import com.shoppingbot.SpringBot.config.BotConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+@Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
@@ -34,7 +36,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/start":
-                    startCommandReceived(chatId, update.getMessage().getChat().getFirstName());
+                    startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName());
                     break;
                 default:
                     sendMessage(chatId, "Sorry, command was not recognized");
@@ -43,8 +45,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void startCommandReceived(Long chatId, String username) {
-        String answer = "Hi, " + username + ", nice to meet you!";
+    private void startCommandReceived(Long chatId, Long userId, String name) {
+        String answer = "Hi, " + name + ", nice to meet you!";
+        log.info("Replied to user: " + userId);
         this.sendMessage(chatId, answer);
     }
 
@@ -56,7 +59,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
+            log.error("Error occurred: " + e.getMessage());
         }
     }
 }
