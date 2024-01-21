@@ -16,6 +16,7 @@
         </rollingPolicy>
 
         <encoder>
+            <charset>UTF-8</charset>
             <pattern>%d %p %c [%t] %m%n</pattern>
         </encoder>
     </appender>
