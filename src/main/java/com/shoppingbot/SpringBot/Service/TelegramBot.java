@@ -30,12 +30,15 @@ import java.util.List;
 public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     private UserRepository userRepository;
+
+    private String linkedUser;
+    private String waitingForUserInput = null;
+
     final BotConfig config;
     static final String HELP_TEXT = "Help text";
     static final String NO_BUTTON = "NO_BUTTON";
     static final String YES_BUTTON = "YES_BUTTON";
     static final String CANCEL_BUTTON = "CANCEL_BUTTON";
-
 
     public TelegramBot(BotConfig botConfig) {
         this.config = botConfig;
@@ -64,57 +67,97 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) { // Main logic
-        KeyboardRow keyboardRow = new KeyboardRow();
+
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
 
+            // Processing send
             if (messageText.contains("/send") && chatId == config.getOwnerId()) {
                 var textToSend = EmojiParser.parseToUnicode(messageText.substring(messageText.indexOf(" ")));
                 var users = userRepository.findAll();
                 for (User user : users) {
-                    sendMessage(user.getChatId(), textToSend, new KeyboardRow());
+                    prepareAndSendMessage(user.getChatId(), textToSend);
                 }
-            } else {
+            }
+
+            // Processing other commands
+            else {
                 switch (messageText) {
                     case "/start":
                         registerUser(update.getMessage());
-                        startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName(), keyboardRow);
+                        startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName());
                         break;
                     case "/mydata":
-                        keyboardRow.add("show my data");
-                        keyboardRow.add("remove my data");
-                        startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName(), keyboardRow);
                         break;
                     case "/help":
-                        sendMessage(chatId, HELP_TEXT, keyboardRow);
+                        prepareAndSendMessage(chatId, HELP_TEXT);
                         break;
                     case "/create_new_list":
                         createNewShoppingList(chatId);
                         break;
-
-
                     default:
-                        sendMessage(chatId, "Sorry, command was not recognized", keyboardRow);
+                        if (waitingForUserInput != null && update.hasMessage() && update.getMessage().hasText()) {
+                            String userInput = update.getMessage().getText();
+                            // Processing the user input
+                            processUserInput(chatId, userInput);
+                            log.info("waitingForUserInput: " + waitingForUserInput);
+                            // Reset the state after processing user input
+                            waitingForUserInput = null;
+                        } else {
+                            prepareAndSendMessage(chatId, "Sorry, command was not recognized");
+                        }
                         break;
                 }
             }
-        } else if (update.hasCallbackQuery()) {
+        }
+
+        // Processing buttons
+        else if (update.hasCallbackQuery()) {
             String callBackData = update.getCallbackQuery().getData();
 
             long messageId = update.getCallbackQuery().getMessage().getMessageId();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
 
+            // Processing the 'Yes' button
             if (callBackData.equals(YES_BUTTON)) {
-                String text = "You pressed yes button";
+                String text = "You pressed yes button. Enter the nickname of the person for whom the list will be created";
                 executeEditMessageText(text, chatId, messageId);
-            } else if (callBackData.equals(CANCEL_BUTTON)) {
+                waitingForUserInput = YES_BUTTON;
+
+            }
+            // Processing the 'Cancel' button
+            else if (callBackData.equals(CANCEL_BUTTON)) {
                 String text = "You pressed cancel";
                 executeEditMessageText(text, chatId, messageId);
             }
 
+            // Processing user input if expected
+            if (waitingForUserInput != null && update.hasMessage() && update.getMessage().hasText()) {
+                String userInput = update.getMessage().getText();
+                processUserInput(chatId, userInput);
+                log.info("waitingForUserInput: " + waitingForUserInput);
+
+                // Resetting the state after processing user input
+                waitingForUserInput = null;
+            }
+            switch (callBackData) {
+                case "exit":
+                    break;
+                case "createNewList":
+                    break;
+                case "myList":
+                    break;
+            }
+
         }
     }
+
+    // Processing the user input
+    private void processUserInput(long chatId, String userInput) {
+        prepareAndSendMessage(chatId, "User entered: " + userInput);
+    }
+
 
     private void createNewShoppingList(long chatId) {
         SendMessage message = new SendMessage();
@@ -125,22 +168,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
         List<InlineKeyboardButton> rowInLine = new ArrayList<>();
 
-
         var cancelButton = new InlineKeyboardButton();
         cancelButton.setText("Yes");
         cancelButton.setCallbackData(YES_BUTTON);
 
-
         var yesButton = new InlineKeyboardButton();
         yesButton.setText("No");
         yesButton.setCallbackData(CANCEL_BUTTON);
-
         rowInLine.add(cancelButton);
         rowInLine.add(yesButton);
         rowsInLine.add(rowInLine);
         markupInLine.setKeyboard(rowsInLine);
         message.setReplyMarkup(markupInLine);
-
         executeMessage(message);
     }
 
@@ -153,7 +192,77 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     }
 
+    // Method /start
+    private void startCommandReceived(Long chatId, Long userId, String name) {
+        String answer = EmojiParser.parseToUnicode("Hi, " + name + ", nice to meet you! :wink:\nWhat do you want to do?");
 
+        // The keyboard
+        InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+        List<InlineKeyboardButton> row = new ArrayList<>();
+
+        // Buttons
+        InlineKeyboardButton myListButton  = new InlineKeyboardButton();
+        myListButton.setText("My list");
+        myListButton.setCallbackData("/mylist");
+        row.add(myListButton);
+
+        InlineKeyboardButton createNewListButton  = new InlineKeyboardButton();
+        createNewListButton.setText("Create new list");
+        createNewListButton.setCallbackData("/createnewlist");
+        row.add(createNewListButton);
+
+        InlineKeyboardButton exitButton = new InlineKeyboardButton();
+        exitButton.setText("Exit");
+        exitButton.setCallbackData("/exit");
+        row.add(exitButton);
+
+        // Add on a keyboard
+        keyboard.add(row);
+        keyboardMarkup.setKeyboard(keyboard);
+
+        log.info("Replied to user: " + userId);
+
+
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(answer);
+        message.setReplyMarkup(keyboardMarkup);
+
+        executeMessage(message);
+    }
+
+    // Use this method if you want to send simple message.
+    private void prepareAndSendMessage(long chatId, String textToSend) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(textToSend);
+        executeMessage(message);
+    }
+
+    // Use this method if you want to send message with keyboard.
+    private void sendMessageWithKeyboard(long chatId, String textToSend, KeyboardRow keyboardRow) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(textToSend);
+        message.setReplyMarkup(getKeyboard(keyboardRow));
+        executeMessage(message);
+    }
+
+    // Use this method if you want to send editable message
+    private void executeEditMessageText(String text, long chatId, long messageId) {
+        EditMessageText message = new EditMessageText();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(text);
+        message.setMessageId((int) messageId);
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            log.error("Error occurred: " + e.getMessage());
+        }
+    }
+
+    // Registration
     private void registerUser(Message message) {
         if (userRepository.findById(message.getChatId()).isEmpty()) {
             var chatId = message.getChatId();
@@ -169,20 +278,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void startCommandReceived(Long chatId, Long userId, String name, KeyboardRow keyboardRow) {
-        String answer = EmojiParser.parseToUnicode("Hi, " + name + ", nice to meet you!" + " :wink:");
-        log.info("Replied to user: " + userId);
-        this.sendMessage(chatId, answer, keyboardRow);
-    }
-
-    private void sendMessage(long chatId, String textToSend, KeyboardRow keyboardRow) {
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(textToSend);
-        message.setReplyMarkup(getKeyboard(keyboardRow));
-        executeMessage(message);
-    }
-
     private ReplyKeyboardMarkup getKeyboard(KeyboardRow keyboardRow) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setResizeKeyboard(true);
@@ -190,18 +285,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         keyboardRows.add(keyboardRow);
         keyboardMarkup.setKeyboard(keyboardRows);
         return keyboardMarkup;
-    }
-
-    private void executeEditMessageText(String text, long chatId, long messageId) {
-        EditMessageText message = new EditMessageText();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(text);
-        message.setMessageId((int) messageId);
-        try {
-            execute(message);
-        } catch (TelegramApiException e) {
-            log.error("Error occurred: " + e.getMessage());
-        }
     }
 
     private void executeMessage(SendMessage message) {

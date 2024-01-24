@@ -19,6 +19,11 @@ public class ShoppingList {
     @ElementCollection
     private Map<String, Integer> list = new HashMap<>();
 
+    public ShoppingList(Long owner, Long user) {
+        this.owner = owner;
+        this.user = user;
+    }
+
     public Long getId() {
         return id;
     }
