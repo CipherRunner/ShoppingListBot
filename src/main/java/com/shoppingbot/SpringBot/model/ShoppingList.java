@@ -1,11 +1,12 @@
 package com.shoppingbot.SpringBot.model;
 
 
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
-import java.util.HashMap;
-import java.util.Map;
+import jakarta.persistence.OneToMany;
+
+
+import java.util.LinkedList;
 
 @Entity(name="shopping_lists")
 public class ShoppingList {
@@ -14,15 +15,11 @@ public class ShoppingList {
 
     private Long owner;
 
-    private Long user;
+    private Long associatedUser;
 
-    @ElementCollection
-    private Map<String, Integer> list = new HashMap<>();
+    @OneToMany(mappedBy = "shoppingList")
+    private LinkedList<Product> products = new LinkedList<>();
 
-    public ShoppingList(Long owner, Long user) {
-        this.owner = owner;
-        this.user = user;
-    }
 
     public Long getId() {
         return id;
@@ -40,19 +37,19 @@ public class ShoppingList {
         this.owner = owner;
     }
 
-    public Long getUser() {
-        return user;
+    public Long getAssociatedUser() {
+        return associatedUser;
     }
 
-    public void setUser(Long user) {
-        this.user = user;
+    public void setAssociatedUser(Long associatedUser) {
+        this.associatedUser = associatedUser;
     }
 
-    public Map<String, Integer> getList() {
-        return list;
+    public LinkedList<Product> getProducts() {
+        return products;
     }
 
-    public void setList(Map<String, Integer> list) {
-        this.list = list;
+    public void setProducts(LinkedList<Product> products) {
+        this.products = products;
     }
 }

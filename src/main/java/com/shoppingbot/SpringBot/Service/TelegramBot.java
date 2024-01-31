@@ -1,11 +1,14 @@
 package com.shoppingbot.SpringBot.Service;
 
 import com.shoppingbot.SpringBot.config.BotConfig;
+import com.shoppingbot.SpringBot.model.Ads;
+import com.shoppingbot.SpringBot.model.AdsRepository;
 import com.shoppingbot.SpringBot.model.User;
 import com.shoppingbot.SpringBot.model.UserRepository;
 import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -20,7 +23,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +32,9 @@ import java.util.List;
 public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AdsRepository adsRepository;
 
     private String linkedUser;
     private String waitingForUserInput = null;
@@ -80,6 +85,11 @@ public class TelegramBot extends TelegramLongPollingBot {
                     prepareAndSendMessage(user.getChatId(), textToSend);
                 }
             }
+
+            // ads
+            /* if (messageText.contains("/send_ad") && chatId == config.getOwnerId()) {
+
+            } */
 
             // Processing other commands
             else {
@@ -294,5 +304,18 @@ public class TelegramBot extends TelegramLongPollingBot {
             log.error("Error occurred: " + e.getMessage());
         }
     }
+
+    @Scheduled(cron = "${cron.scheduled}")
+    private void sendAds () {
+        var ads = adsRepository.findAll();
+        var users = userRepository.findAll();
+        for (Ads ad: ads) {
+            for (User user: users) {
+                prepareAndSendMessage(user.getChatId(), ad.getMessage());
+            }
+        }
+    }
+
+
 
 }
