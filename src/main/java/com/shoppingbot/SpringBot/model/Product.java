@@ -12,8 +12,6 @@ public class Product {
     private String name;
     private Category category;
 
-    private String typeOfProduct;
-
     private double quantity;
 
     private UnitOfMeasure unitOfMeasure;
@@ -21,5 +19,7 @@ public class Product {
     @ManyToOne
     @JoinColumn(name = "shopping_list_id")
     private ShoppingList shoppingList;
+
+
 
 }

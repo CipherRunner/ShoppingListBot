@@ -26,6 +26,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -44,6 +45,10 @@ public class TelegramBot extends TelegramLongPollingBot {
     static final String NO_BUTTON = "NO_BUTTON";
     static final String YES_BUTTON = "YES_BUTTON";
     static final String CANCEL_BUTTON = "CANCEL_BUTTON";
+
+    static final String YES_BUTTON_MESSAGE = "You pressed yes button. Enter the nickname of the person for whom the list will be created. \n User 2 must also start the bot.";
+
+
 
     public TelegramBot(BotConfig botConfig) {
         this.config = botConfig;
@@ -95,8 +100,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             else {
                 switch (messageText) {
                     case "/start":
-                        registerUser(update.getMessage());
-                        startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName());
+                        if(userRepository.findById(update.getMessage().getChatId()).isEmpty()) {
+                            registerUser(update.getMessage());
+                            startCommandReceived(chatId, update.getMessage().getChatId(), update.getMessage().getChat().getFirstName());
+                        } else {
+                            prepareAndSendMessage(chatId, "Alles in ordnung!");
+                        }
+
                         break;
                     case "/mydata":
                         break;
@@ -104,6 +114,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                         prepareAndSendMessage(chatId, HELP_TEXT);
                         break;
                     case "/create_new_list":
+
+
                         createNewShoppingList(chatId);
                         break;
                     default:
@@ -131,11 +143,25 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             // Processing the 'Yes' button
             if (callBackData.equals(YES_BUTTON)) {
-                String text = "You pressed yes button. Enter the nickname of the person for whom the list will be created";
-                executeEditMessageText(text, chatId, messageId);
+                executeEditMessageText(YES_BUTTON_MESSAGE, chatId, messageId);
                 waitingForUserInput = YES_BUTTON;
+                String text = update.getMessage().getText();
+                prepareAndSendMessage(chatId, text);
+
+                Optional<User> optional = userRepository.findByUserName(text);
+                prepareAndSendMessage(chatId, "Optional received");
+
+                if (optional.isPresent()) {
+                    User user = optional.get();
+                    prepareAndSendMessage(chatId, "User is found!");
+                } else {
+                    prepareAndSendMessage(chatId, "User isn't found!");
+                }
+
+                waitingForUserInput = null;
 
             }
+
             // Processing the 'Cancel' button
             else if (callBackData.equals(CANCEL_BUTTON)) {
                 String text = "You pressed cancel";
@@ -151,13 +177,20 @@ public class TelegramBot extends TelegramLongPollingBot {
                 // Resetting the state after processing user input
                 waitingForUserInput = null;
             }
+
+
             switch (callBackData) {
+
+                case "myList":
+                    prepareAndSendMessage(chatId, "You clicked the my list button");
+                    break;
+                case "createnewlist":
+                    prepareAndSendMessage(chatId, "You clicked the create list button");
+                    createNewShoppingList(chatId);
+                    break;
                 case "exit":
                     break;
-                case "createNewList":
-                    break;
-                case "myList":
-                    break;
+
             }
 
         }
@@ -205,7 +238,20 @@ public class TelegramBot extends TelegramLongPollingBot {
     // Method /start
     private void startCommandReceived(Long chatId, Long userId, String name) {
         String answer = EmojiParser.parseToUnicode("Hi, " + name + ", nice to meet you! :wink:\nWhat do you want to do?");
+        InlineKeyboardMarkup keyboardMarkup = getMainKeyboard();
 
+        log.info("Replied to user: " + userId);
+
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(answer);
+        message.setReplyMarkup(keyboardMarkup);
+
+        executeMessage(message);
+    }
+
+    // Main keyboard
+    private InlineKeyboardMarkup getMainKeyboard() {
         // The keyboard
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
@@ -219,7 +265,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         InlineKeyboardButton createNewListButton  = new InlineKeyboardButton();
         createNewListButton.setText("Create new list");
-        createNewListButton.setCallbackData("/createnewlist");
+        createNewListButton.setCallbackData("createnewlist");
         row.add(createNewListButton);
 
         InlineKeyboardButton exitButton = new InlineKeyboardButton();
@@ -230,16 +276,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         // Add on a keyboard
         keyboard.add(row);
         keyboardMarkup.setKeyboard(keyboard);
-
-        log.info("Replied to user: " + userId);
-
-
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(answer);
-        message.setReplyMarkup(keyboardMarkup);
-
-        executeMessage(message);
+        return keyboardMarkup;
     }
 
     // Use this method if you want to send simple message.
@@ -315,7 +352,4 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
         }
     }
-
-
-
 }
